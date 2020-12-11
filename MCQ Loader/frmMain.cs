@@ -39,26 +39,27 @@ namespace MCQ_Loader
 			myview.Dispose();
 		}
 
-		private void Form1_Load(object sender, EventArgs e)
+		private void frmMain_Load(object sender, EventArgs e)
 		{
 			var myconnection = new OleDbConnection("Provider=Microsoft.Jet.OLEDB.4.0;Data Source=Questions.dat;");
 			var myadapter = new OleDbDataAdapter("Select * FROM questions", myconnection);
 			try
 			{
+				
 				myconnection.Open();
 
-				
 				myadapter.Fill(questionsTable);
 
+				if (questionsTable.Columns.Count != 6) throw new Exception("Database Table 'questions' does not follow specification.");
 				questionsTable.Columns.Add(new DataColumn("RandomValues", typeof(int)));
 				RandomizeTable();
 
-				fetchNextQuestion();
+				FetchNextQuestion();
 
 			}
-			catch
+			catch(Exception ex)
 			{
-				MessageBox.Show("Couldn't establish connection with the questions database, Management MCQs is exiting...", "Connection not initialized", MessageBoxButtons.OK, MessageBoxIcon.Stop);
+				MessageBox.Show("Couldn't establish connection with the questions database, MCQ Loader is exiting...\n" + ex.Message, "Connection not initialized", MessageBoxButtons.OK, MessageBoxIcon.Stop);
 				Application.ExitThread();
 			}
 			finally
@@ -68,7 +69,7 @@ namespace MCQ_Loader
 				myadapter.Dispose();
 			}
 		}
-		void fetchNextQuestion() 
+		void FetchNextQuestion() 
 		{
 			curr++;
 			if (curr >= questionsCount)
@@ -100,36 +101,52 @@ namespace MCQ_Loader
 			lblQuestion.Text = questionsTable.Rows[curr][1].ToString();
 			lblID.Text = string.Concat(curr + 1, " of ", questionsCount);
 
-			var rng = new Random();
-			var answers = new List<string>();
-			answers.Add(questionsTable.Rows[curr][2].ToString());
-			answers.Add(questionsTable.Rows[curr][3].ToString());
-			answers.Add(questionsTable.Rows[curr][4].ToString());
-			answers.Add(questionsTable.Rows[curr][5].ToString());
-
-			bool set = false;
-			int n = 4;
-			while (n > 1)
+			rdbAnswerC.Visible = rdbAnswerD.Visible = true;
+			if (questionsTable.Rows[curr][3].ToString() == "") //True False question
 			{
-				n--;
-				int k = rng.Next(n + 1);
-				if (k == 0 && set==false)
-				{
-					correct = n;
-					set = true;
-				}
-				string value = answers[k];
-				answers[k] = answers[n];
-				answers[n] = value;
+				rdbAnswerA.Text = GetRadioButtonText('a', "True"); rdbAnswerA.Checked = false;
+				rdbAnswerB.Text = GetRadioButtonText('b', "False"); rdbAnswerB.Checked = false;
+				rdbAnswerC.Visible = rdbAnswerC.Checked = false;
+				rdbAnswerD.Visible = rdbAnswerD.Checked = false;
+				correct = questionsTable.Rows[curr][2].ToString().ToLower() == "true" ? 0 : 1;
 			}
-			if (set == false) correct = 0;
-			rdbAnswerA.Text = answers[0]; rdbAnswerA.Checked=false;
-			rdbAnswerB.Text = answers[1]; rdbAnswerB.Checked=false;
-			rdbAnswerC.Text = answers[2]; rdbAnswerC.Checked=false;
-			rdbAnswerD.Text = answers[3]; rdbAnswerD.Checked=false;
+			else
+			{
+				var rng = new Random();
+				var answers = new List<string>
+				{
+					questionsTable.Rows[curr][2].ToString(),
+					questionsTable.Rows[curr][3].ToString(),
+					questionsTable.Rows[curr][4].ToString(),
+					questionsTable.Rows[curr][5].ToString()
+				};
 
-
+				bool set = false;
+				int n = 4;
+				while (n > 1)
+				{
+					n--;
+					int k = rng.Next(n + 1);
+					if (k == 0 && set == false)
+					{
+						correct = n;
+						set = true;
+					}
+					string value = answers[k];
+					answers[k] = answers[n];
+					answers[n] = value;
+				}
+				if (set == false) correct = 0;
+				rdbAnswerA.Text = GetRadioButtonText('a', answers[0]); rdbAnswerA.Checked = false;
+				rdbAnswerB.Text = GetRadioButtonText('b', answers[1]); rdbAnswerB.Checked = false;
+				rdbAnswerC.Text = GetRadioButtonText('c', answers[2]); rdbAnswerC.Checked = false;
+				rdbAnswerD.Text = GetRadioButtonText('d', answers[3]); rdbAnswerD.Checked = false;
+			}
 		}
+		private string GetRadioButtonText(char letter, string answerText)
+        {
+			return $"&{letter}) {answerText}";
+        }
 		private void button1_Click(object sender, EventArgs e)
 		{
 			if ((rdbAnswerA.Checked && correct == 0) ||
@@ -140,12 +157,12 @@ namespace MCQ_Loader
 			{
 				mycorrects.Add(curr);
 				correctAnswers++;
-				fetchNextQuestion();
+				FetchNextQuestion();
 			}
 			else
 			{
 				MessageBox.Show("Incorrect Answer! The correct answer is: " + "abcd"[correct], "Incorrect Answer", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-				fetchNextQuestion();
+				FetchNextQuestion();
 			}
 
 		}
